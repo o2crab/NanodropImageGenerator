@@ -1,42 +1,96 @@
-body {
-    font-family: 'Segoe UI', sans-serif;
-    background-color: #f9f9f9;
-    margin: 0;
-    padding: 0;
-}
+document.getElementById('tsvFile').addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-.container {
-    max-width: 1200px;
-    margin: 2rem auto;
-    padding: 1rem;
-}
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const lines = event.target.result.split('\n');
+        const samples = {};
+        let currentSample = null;
+        let recording = false;
 
-h1 {
-    text-align: center;
-    color: #333;
-}
+        lines.forEach(line => {
+            line = line.trim();
+            if (line.startsWith('Sample')) {
+                currentSample = line;
+                samples[currentSample] = { x: [], y: [] };
+                recording = false;
+            } else if (line === '//QSpecEnd:') {
+                recording = true;
+            } else if (recording && line.includes('\t')) {
+                const [wl, ab] = line.split('\t');
+                const wavelength = parseFloat(wl);
+                const absorbance = parseFloat(ab);
+                if (!isNaN(wavelength) && !isNaN(absorbance)) {
+                    samples[currentSample].x.push(wavelength);
+                    samples[currentSample].y.push(absorbance);
+                }
+            }
+        });
 
-input[type="file"] {
-    display: block;
-    opacity: 0;
-}
+        const container = document.getElementById('plots');
+        container.innerHTML = ''; // Clear previous plots
 
-.button {
-    display: block;
-    padding: 10px 15px;
-    margin: 10px 0;
-    background-color: hsl(210, 100%, 52%);
-    cursor: pointer;
-    width: fit-content;
-    border-radius: 3px;
-    border-width: 0;
-    color: #fff;
-    font-size: medium;
-    font-weight: bold;
-}
+        const plotIds = [];
 
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 20px;
-}
+        Object.entries(samples).forEach(([sampleName, values], index) => {
+            const div = document.createElement('div');
+            const plotId = `plot-${index}`;
+            div.id = plotId;
+            container.appendChild(div);
+            plotIds.push(plotId);
+
+            Plotly.newPlot(plotId, [{
+                x: values.x,
+                y: values.y,
+                mode: 'lines',
+                name: sampleName
+            }], {
+                title: {
+                    text: sampleName
+                },
+                xaxis: { title: 'Wavelength (nm)' },
+                yaxis: { title: 'Absorbance' },
+                margin: { t: 40 },
+                font: {
+                    size: 18
+                }
+            }, { responsive: true });
+        });
+
+        // Show download button
+        const downloadBtn = document.getElementById('downloadPdfBtn');
+        downloadBtn.style.display = 'inline-block';
+
+        downloadBtn.onclick = async () => {
+            const filename = file.name.substring(0, file.name.indexOf('.'));
+            const { jsPDF } = window.jspdf;
+            let pdf = new jsPDF('portrait', 'mm', 'a4');
+            pdf.setFontSize(12);
+            const width = 65;
+            const height = 65;
+            let margin = 6;
+            let horizontalSpace = 1;
+            let verticalSpace = 4;
+            let fontHeight = 6;
+
+            pdf.text(filename, margin, margin);
+
+            for (let i = 0; i < plotIds.length; i++) {
+                const plotId = plotIds[i];
+                const imgData = await Plotly.toImage(plotId, { format: 'png', width: 800, height: 600 });
+                if (i > 0 && i % 12 == 0) {
+                    pdf.addPage();
+                    pdf.text(filename, margin, margin);
+                }
+                const xOffset = margin + (width + horizontalSpace) * ((i%12) % 3);
+                const yOffset = margin + fontHeight + (height + verticalSpace) * Math.floor((i%12) / 3);
+                pdf.addImage(imgData, 'PNG', xOffset, yOffset, width, height);
+            }
+
+            pdf.save(filename + '.pdf');
+        };
+    };
+
+    reader.readAsText(file);
+});
