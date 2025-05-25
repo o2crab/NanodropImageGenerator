@@ -49,9 +49,8 @@ document.getElementById('tsvFile').addEventListener('change', function (e) {
                 title: {
                     text: sampleName
                 },
-                xaxis: { title: 'Wavelength (nm)' },
-                yaxis: { title: 'Absorbance' },
-                margin: { t: 40 },
+                xaxis: { title: { text: 'Wavelength (nm)'} },
+                yaxis: { title: { text: 'Absorbance'} },
                 font: {
                     size: 18
                 }
