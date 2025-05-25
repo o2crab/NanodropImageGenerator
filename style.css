@@ -17,8 +17,7 @@ h1 {
 }
 
 input[type="file"] {
-    display: block;
-    opacity: 0;
+    display: none;
 }
 
 .button {
@@ -56,4 +55,13 @@ input[type="file"] {
 
 .bold_text {
     font-weight: bold;
+}
+
+.layout-group-container {
+    margin-bottom: 16px;
+}
+
+.layout-group-member {
+    margin-top: 8px;
+    margin-bottom: 0%;
 }
